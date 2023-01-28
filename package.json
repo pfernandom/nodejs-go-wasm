@@ -1,0 +1,26 @@
+{
+  "name": "wasm",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "buildWasm": "GOOS=js GOARCH=wasm go build -o app.wasm",
+    "logger": "npx nodemon node/logger.js",
+    "start": "npx nodemon node/index.js",
+    "serve": "npm run buildWasm && npm run start",
+    "all": "npm run logger & npm run serve"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "esbuild": "^0.17.5",
+    "express": "^4.18.2"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "**/*.wasm"
+    ],
+    "delay": 2500
+  }
+}
