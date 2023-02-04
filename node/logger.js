@@ -1,5 +1,4 @@
 const fs = require("fs");
-const proc = require("process");
 const util = require("util");
 
 var logFile = fs.createWriteStream("test.log", { flags: "a" });

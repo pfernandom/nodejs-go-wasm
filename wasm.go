@@ -13,12 +13,20 @@ import (
 
 var r, _ = regexp.Compile("(WARN|ERROR|INFO) (.+)")
 
-type Log struct {
-	Level string
-	Msg string
+type ParsedLogs = map[string]interface{}
+type OutputCallback = func(parsedLogs ParsedLogs)
+
+func ModuleOutput(parsedLogs ParsedLogs) {
+	logCallback := js.Global().Get("logCallback")
+	logCallback.Invoke(parsedLogs)
 }
 
-func (l Log) ToMap() map[string]interface{} {
+type Log struct {
+	Level string
+	Msg   string
+}
+
+func (l Log) ToMap() ParsedLogs {
 	m := make(map[string]interface{})
 	m["level"] = l.Level
 	m["msg"] = l.Msg
@@ -39,11 +47,11 @@ func parse(str string) Log {
 }
 
 type Accumulator struct {
-	sb strings.Builder
+	sb  strings.Builder
 	out chan string
 }
 
-func NewAccumulator() Accumulator{
+func NewAccumulator() Accumulator {
 	return Accumulator{sb: strings.Builder{}, out: make(chan string, 10)}
 }
 
@@ -59,12 +67,12 @@ func (a *Accumulator) Flush() {
 		res := a.sb.String()
 		go func(res string) {
 			a.out <- res
-		} (res)
+		}(res)
 		a.sb = strings.Builder{}
 	}
 }
 
-func Execute() {
+func Execute(callbackFn OutputCallback) {
 	file, err := os.Open("./test.log")
 	if err != nil {
 		log.Fatal(err)
@@ -74,18 +82,17 @@ func Execute() {
 	acc := NewAccumulator()
 	defer close(acc.out)
 
-		go func() {
-			for {
-				select {
-				case str := <- acc.out:
-					l := parse(str)
-					logCallback := js.Global().Get("logCallback")
-					logCallback.Invoke(l.ToMap())
-				case <- time.After(2 * time.Second):
-					acc.Flush()
-				}
+	go func() {
+		for {
+			select {
+			case str := <-acc.out:
+				l := parse(str)
+				callbackFn(l.ToMap())
+			case <-time.After(2 * time.Second):
+				acc.Flush()
 			}
-		} ()
+		}
+	}()
 
 	reader := bufio.NewReader(file)
 
@@ -100,9 +107,9 @@ func Execute() {
 		}
 		acc.Append(line)
 	}
+
 }
 
 func main() {
-	Execute()
-	<-make(chan bool)
+	Execute(ModuleOutput)
 }
